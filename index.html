@@ -5,6 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
     <title>Encuentros</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              rose: {
+                50: '#fff1f2',
+                100: '#ffe4e6',
+                200: '#fecdd3',
+                300: '#fda4af',
+                400: '#fb7185',
+                500: '#f43f5e',
+                600: '#e11d48',
+                700: '#be123c',
+                800: '#9f1239',
+                900: '#881337',
+              }
+            }
+          }
+        }
+      }
+    </script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
      crossorigin=""/>
@@ -28,7 +51,7 @@
 
        /* Cluster Marker Styles */
        .cluster-marker {
-         background-color: #ec4899; /* Pink-500 */
+         background-color: #e11d48; /* Rose-600 */
          border: 3px solid rgba(255, 255, 255, 0.8);
          color: white;
          border-radius: 50%;
@@ -66,7 +89,8 @@
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4",
-    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^5.0.0"
+    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^5.0.0",
+    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/+esm"
   }
 }
 </script>

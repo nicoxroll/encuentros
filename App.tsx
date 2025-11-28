@@ -31,12 +31,16 @@ import {
   Users,
   Zap,
   Moon,
-  Sun
+  Sun,
+  Bell,
+  Settings,
+  LogOut
 } from 'lucide-react';
 import { generateNearbyEncounters, generateInitialMessage } from './services/geminiService';
 import { Encounter, UserProfile, EncounterStatus, Chat, Location, ChatMessage, AVAILABLE_TAGS, EncounterTag } from './types';
 import { getDistanceInMeters, MATCH_RADIUS } from './utils/geo';
 import { EncounterCard } from './components/EncounterCard';
+import { supabase } from './services/supabaseClient';
 
 // --- Assets & Icons ---
 const createIcon = (color: string) => L.divIcon({
@@ -288,7 +292,10 @@ export default function App() {
   const [showUnmatchDialog, setShowUnmatchDialog] = useState(false);
   const [showMatchOverlay, setShowMatchOverlay] = useState<{ visible: boolean, partner: UserProfile | null }>({ visible: false, partner: null });
   const [galleryImages, setGalleryImages] = useState<string[] | null>(null);
-  const [notification, setNotification] = useState<string | null>(null);
+  
+  // Notification System
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -363,6 +370,11 @@ export default function App() {
 
   // --- Logic ---
 
+  const showNotification = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
+      setNotification({ message, type });
+      setTimeout(() => setNotification(null), 3000);
+  };
+
   // CRITICAL: Visibility Logic
   const visibleEncounters = useMemo(() => {
       if (myEncounters.length === 0) return [];
@@ -378,6 +390,25 @@ export default function App() {
       });
   }, [nearbyEncounters, myEncounters, showHidden]);
 
+  const exploreList = useMemo(() => {
+    if (exploreMode === 'drilldown' && exploreSelectedMyId) {
+        const myPost = myEncounters.find(e => e.id === exploreSelectedMyId);
+        if (!myPost) return [];
+        return visibleEncounters.filter(other => {
+            const d = getDistanceInMeters(myPost.location.lat, myPost.location.lng, other.location.lat, other.location.lng);
+            return d <= MATCH_RADIUS;
+        });
+    }
+    if (exploreMode === 'list') {
+        let list = [...visibleEncounters];
+        if (filterTags.length > 0) {
+            list = list.filter(e => e.tags.some(tag => filterTags.includes(tag)));
+        }
+        return list;
+    }
+    return myEncounters;
+  }, [visibleEncounters, myEncounters, exploreMode, exploreSelectedMyId, filterTags]);
+
   const handleSearchStreet = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
@@ -387,6 +418,7 @@ export default function App() {
       setSearchResults(data);
     } catch (e) {
       console.error(e);
+      showNotification('Error al buscar la ubicación', 'error');
     } finally {
       setIsSearching(false);
     }
@@ -429,9 +461,9 @@ export default function App() {
        markersToShow.forEach(other => {
          if (!processedIds.has(other.id)) {
            const dist = Math.sqrt(
-             Math.pow(current.location.lat - other.location.lat, 2) + 
+             Math.pow(current.location.lat - other.location.lat, 
              Math.pow(current.location.lng - other.location.lng, 2)
-           );
+           ));
            
            if (dist < threshold) {
              clusterGroup.push(other);
@@ -457,32 +489,12 @@ export default function App() {
      return { clusters, singles };
   }, [visibleEncounters, myEncounters, mapZoom, mapFilters, showHidden]);
 
-  const exploreList = useMemo(() => {
-    if (exploreMode === 'drilldown' && exploreSelectedMyId) {
-        const myPost = myEncounters.find(e => e.id === exploreSelectedMyId);
-        if (!myPost) return [];
-        return visibleEncounters.filter(other => {
-            const d = getDistanceInMeters(myPost.location.lat, myPost.location.lng, other.location.lat, other.location.lng);
-            return d <= MATCH_RADIUS;
-        });
-    }
-    if (exploreMode === 'list') {
-        let list = [...visibleEncounters];
-        if (filterTags.length > 0) {
-            list = list.filter(e => e.tags.some(tag => filterTags.includes(tag)));
-        }
-        return list;
-    }
-    return myEncounters;
-  }, [visibleEncounters, myEncounters, exploreMode, exploreSelectedMyId, filterTags]);
-
   // Notification for Drilldown
   useEffect(() => {
       if(exploreMode === 'drilldown' && exploreSelectedMyId) {
           const count = exploreList.length;
           if(count > 0) {
-              setNotification(`${count} personas encontradas cerca de tu publicación`);
-              setTimeout(() => setNotification(null), 3000);
+              showNotification(`${count} personas encontradas cerca`, 'info');
           }
       }
   }, [exploreMode, exploreSelectedMyId, exploreList?.length]);
@@ -517,12 +529,13 @@ export default function App() {
       quickMessage: editQuickMessage
     }));
     setIsEditingProfile(false);
+    showNotification('Perfil actualizado correctamente', 'success');
   };
 
   const handleCreateEncounter = () => {
     if (!mapCenter || !newEncounterTitle || !newEncounterDesc) return;
     if (myEncounters.length >= 5) {
-      alert("Has alcanzado el límite de 5 encuentros activos. Elimina uno para crear otro.");
+      showNotification("Límite de 5 encuentros alcanzado", 'error');
       return;
     }
 
@@ -548,12 +561,13 @@ export default function App() {
     setCurrentView('main');
     setActiveTab('explore'); 
     setExploreMode('grouped');
+    showNotification("Encuentro publicado con éxito", 'success');
   };
 
   const handleQuickPublish = () => {
     if (!mapCenter) return;
     if (myEncounters.length >= 5) {
-      alert("Límite de 5 encuentros alcanzado.");
+      showNotification("Límite de 5 encuentros alcanzado", 'error');
       return;
     }
 
@@ -572,9 +586,9 @@ export default function App() {
     };
 
     setMyEncounters(prev => [newEncounter, ...prev]);
-    setNotification("¡Encuentro publicado rápidamente!");
-    setTimeout(() => setNotification(null), 3000);
+    showNotification("¡Encuentro publicado rápidamente!", 'success');
     setActiveTab('explore');
+    setCurrentView('main'); // Ensure we leave the create view if triggered from there
   };
 
   const toggleTagSelection = (tag: EncounterTag) => {
@@ -610,6 +624,8 @@ export default function App() {
            ]
        };
        setChats(prev => [newChat, ...prev]);
+    } else {
+        showNotification("Le has dado 'Me Gusta'", 'success');
     }
   };
 
@@ -619,6 +635,7 @@ export default function App() {
       setNearbyEncounters(prev => prev.map(e => e.id === selectedEncounter.id ? updated : e));
       setSelectedEncounter(null);
       setCurrentView('main');
+      showNotification("Encuentro ocultado", 'info');
   };
 
   const handleUnmatch = () => {
@@ -634,6 +651,7 @@ export default function App() {
       setSelectedEncounter(null);
       setCurrentView('main');
       setActiveChat(null);
+      showNotification("Match cancelado", 'info');
   };
 
   const openChat = (encounterId: string) => {
@@ -715,6 +733,10 @@ export default function App() {
               }
               return c;
           }));
+          
+          if(currentView !== 'chat') {
+             showNotification(`Nuevo mensaje de ${activeChat.partnerName}`, 'success');
+          }
 
       }, 2500);
   };
@@ -876,6 +898,22 @@ export default function App() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+           {/* Quick Publish Action */}
+           <div className="mb-6">
+               <button 
+                 onClick={handleQuickPublish}
+                 className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform"
+               >
+                  <Zap size={20} className="fill-white" />
+                  <span>Publicación Rápida (Usar Perfil)</span>
+               </button>
+               <div className="flex items-center gap-3 mt-6 mb-2">
+                   <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
+                   <span className="text-gray-400 text-xs font-bold uppercase">O crea uno detallado</span>
+                   <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
+               </div>
+           </div>
+
            <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl flex items-start border border-blue-100 dark:border-blue-800">
               <MapPin size={20} className="text-blue-500 dark:text-blue-300 mt-0.5 mr-2 shrink-0" />
               <p className="text-sm text-blue-700 dark:text-blue-200">
@@ -1203,10 +1241,17 @@ export default function App() {
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative transition-colors duration-300">
       
-      {/* Toast Notification */}
+      {/* Toast Notification System */}
       {notification && (
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg z-[2000] animate-in slide-in-from-top fade-in">
-           {notification}
+        <div className={`absolute top-10 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full text-sm font-bold shadow-xl z-[2000] animate-in slide-in-from-top fade-in flex items-center gap-2 whitespace-nowrap ${
+            notification.type === 'error' ? 'bg-red-500 text-white' : 
+            notification.type === 'success' ? 'bg-green-500 text-white' : 
+            'bg-gray-900 dark:bg-gray-200 text-white dark:text-gray-900'
+        }`}>
+           {notification.type === 'error' && <AlertTriangle size={16}/>}
+           {notification.type === 'success' && <Check size={16}/>}
+           {notification.type === 'info' && <Bell size={16}/>}
+           {notification.message}
         </div>
       )}
 
@@ -1323,16 +1368,6 @@ export default function App() {
               </button>
            </div>
            
-           {/* Dark Mode Toggle */}
-           <div className="absolute top-4 right-4 z-[500]">
-               <button 
-                 onClick={() => setDarkMode(!darkMode)}
-                 className="bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg text-gray-700 dark:text-white active:scale-95 transition-transform"
-               >
-                   {darkMode ? <Sun size={24} /> : <Moon size={24} />}
-               </button>
-           </div>
-
            {/* Map Search Overlay */}
            {showMapSearch && (
              <div className="absolute top-0 left-0 right-0 bottom-0 bg-white/95 dark:bg-gray-900/95 z-[490] p-6 animate-in slide-in-from-left duration-300 overflow-y-auto dark:text-white">
@@ -1606,7 +1641,7 @@ export default function App() {
                            </div>
                        )}
                    </div>
-                   <button onClick={() => setLoginStep('landing')} className="absolute top-4 right-4 bg-white/30 backdrop-blur-md p-2 rounded-full text-white"><LogIn size={20} className="rotate-180"/></button>
+                   <button onClick={() => setLoginStep('landing')} className="absolute top-4 right-4 bg-white/30 backdrop-blur-md p-2 rounded-full text-white"><LogOut size={20}/></button>
                </div>
                
                <div className="mt-20 px-6 pb-24">
@@ -1674,6 +1709,29 @@ export default function App() {
                        <p className="text-gray-500 dark:text-gray-400 mt-4 text-lg leading-relaxed">{userProfile.bio}</p>
                    )}
                    
+                   {/* Settings Section (New) */}
+                   <div className="mt-8">
+                       <div className="flex items-center justify-between mb-4">
+                           <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                               <Settings size={18} /> Configuración
+                           </h3>
+                       </div>
+                       <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+                           <div className="flex items-center justify-between">
+                               <div className="flex items-center gap-3">
+                                   {darkMode ? <Moon size={20} className="text-rose-500"/> : <Sun size={20} className="text-gray-500"/>}
+                                   <span className="font-medium text-gray-700 dark:text-gray-200">Modo Oscuro</span>
+                               </div>
+                               <button 
+                                 onClick={() => setDarkMode(!darkMode)}
+                                 className={`w-12 h-6 rounded-full p-1 transition-colors relative ${darkMode ? 'bg-rose-600' : 'bg-gray-300'}`}
+                               >
+                                   <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                               </button>
+                           </div>
+                       </div>
+                   </div>
+
                    {/* My Encounters Section */}
                    <div className="mt-8 mb-8">
                       <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-2 mb-4">
@@ -1689,7 +1747,10 @@ export default function App() {
                                     showStatus={true}
                                   />
                                   <button 
-                                    onClick={() => setMyEncounters(p => p.filter(e => e.id !== encounter.id))}
+                                    onClick={() => {
+                                        setMyEncounters(p => p.filter(e => e.id !== encounter.id));
+                                        showNotification("Encuentro eliminado", 'info');
+                                    }}
                                     className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full text-red-500 shadow-sm"
                                   >
                                       <Trash2 size={16} />
@@ -1705,7 +1766,7 @@ export default function App() {
                    <button 
                      onClick={isEditingProfile ? handleSaveProfile : () => setIsEditingProfile(true)}
                      className={`w-full mt-4 mb-10 py-4 rounded-xl font-bold flex items-center justify-center gap-2 ${
-                         isEditingProfile ? 'bg-rose-600 text-white shadow-lg shadow-rose-200' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-white hover:bg-gray-200'
+                         isEditingProfile ? 'bg-rose-600 text-white shadow-lg shadow-rose-200' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
                      }`}
                    >
                        {isEditingProfile ? <><Save size={20} /> Guardar Cambios</> : 'Editar Perfil'}
