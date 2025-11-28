@@ -1,0 +1,8 @@
+{
+  "name": "Encuentros",
+  "description": "Una aplicación de citas basada en la ubicación para conectar con personas con las que te cruzaste en la vida real. Publica tu encuentro y si coinciden en lugar y tiempo, ¡es un match!",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

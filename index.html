@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>Encuentros</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+     <style>
+       /* Custom scrollbar hide for mobile feel */
+       .no-scrollbar::-webkit-scrollbar {
+          display: none;
+       }
+       .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+       }
+       
+       /* Map container fix */
+       .leaflet-container {
+         width: 100%;
+         height: 100%;
+         z-index: 0;
+         font-family: inherit;
+       }
+
+       /* Cluster Marker Styles */
+       .cluster-marker {
+         background-color: #ec4899; /* Pink-500 */
+         border: 3px solid rgba(255, 255, 255, 0.8);
+         color: white;
+         border-radius: 50%;
+         text-align: center;
+         font-weight: bold;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+         animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+       }
+
+       /* Smooth Marker Animation */
+       .custom-icon {
+         transition: all 0.3s ease;
+         animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+       }
+
+       @keyframes popIn {
+         from { transform: scale(0); opacity: 0; }
+         to { transform: scale(1); opacity: 1; }
+       }
+
+       @keyframes scaleIn {
+         from { transform: scale(0) translateY(10px); opacity: 0; }
+         to { transform: scale(1) translateY(0); opacity: 1; }
+       }
+     </style>
+  <script type="importmap">
+{
+  "imports": {
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4",
+    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^5.0.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-100 text-gray-900 overflow-hidden select-none">
+    <div id="root" class="h-full w-full absolute inset-0"></div>
+  </body>
+</html>
